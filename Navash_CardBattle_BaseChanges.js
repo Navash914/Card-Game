@@ -498,3 +498,36 @@ Game_Enemy.prototype.addAttackCount = function(value) {
     this._attackCount += value;
     this.refresh();
 };
+
+Game_Enemy.prototype.resetAttackCount = function() {
+    this._attackCount = this.enemy().attackCount;
+    this.refresh();
+};
+
+//Game_Enemy.prototype.clearBuffs = function() {
+//    this._buffs = [0,0,0,0,0,0,0,0];
+//    this.refresh();
+//};
+
+
+Game_Enemy.prototype.canAttackNormal = function() {
+    if (!this.canMove) return false;
+    if (this.isStateAffected(14) || this.isStateAffected(18)) return false;
+    return true;
+};
+
+Game_Enemy.prototype.canAttackCreatures = function() {
+    if (!this.canAttackNormal()) return false;
+    if (this.isStateAffected(11)) return false;
+    return true;
+};
+
+Game_Enemy.prototype.canAttackPlayer = function() {
+    if (!this.canAttackNormal()) return false;
+    if (this.isStateAffected(12)) return false;
+    return true;
+};
+
+Game_Enemy.prototype.isDefender = function() {
+    return this.isStateAffected(15);
+};
