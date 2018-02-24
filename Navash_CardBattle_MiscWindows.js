@@ -27,6 +27,7 @@ Window_CardSelection.prototype.refresh = function(x, y, obj, absY, index) {
   if (obj) this._card = obj;
   Window_Command.prototype.refresh.call(this);
   this.height = this.maxItems() * this.lineHeight() + 2 * this.standardPadding();
+  Window_Command.prototype.refresh.call(this);
   if (x) this.x = x;
   if (y) {
     if (absY) this.y = y;
@@ -70,8 +71,10 @@ Window_CardSelection.prototype.makeCommandList = function() {
       this.makeHandCommands();
       break;
     case 'playerCreature':
+    case 'playerCreatures':
       this.makePlayerCreatureCommands();
       break;
+    case 'enemyCreature':
     case 'enemyCreatures':
       this.makeEnemyCreatureCommands();
       break;
@@ -93,7 +96,7 @@ Window_CardSelection.prototype.makeHandCommands = function() {
 };
 
 Window_CardSelection.prototype.makePlayerCreatureCommands = function() {
-  this.addCommand('Attack', 'attack', true);
+  this.addCommand('Attack', 'attack', this.canAttack());
   this.addCommand('Check', 'check', true);
 };
 
@@ -107,7 +110,7 @@ Window_CardSelection.prototype.makePlayerCommands = function() {
 };
 
 Window_CardSelection.prototype.makeEnemyCommands = function() {
-  this.addCommand('Check', 'check', true);
+  this.addCommand('Check Nexus', 'check', true);
 };
 
 Window_CardSelection.prototype.canUse = function(card) {
@@ -131,6 +134,18 @@ Window_CardSelection.prototype.canUse = function(card) {
       return false;
       break;
   }
+};
+
+Window_CardSelection.prototype.canAttack = function(card) {
+  var scene = SceneManager._scene;
+  var enemyCreatures = scene._enemyCreatures._creatures;
+  var monsterIndex = scene._playerCreatures.index();
+  var monster = scene._playerCreatures._creatures[monsterIndex];
+  if (!monster.canMove()) return false;
+  if (monster.isStateAffected(12) && enemyCreatures.length < 1) return false;
+  if (monster.isStateAffected(14)) return false;
+  if (monster._attackCount < 1) return false;
+  return true;
 };
 
 Window_CardSelection.prototype.processCanCreatureUse = function(card) {
@@ -218,26 +233,29 @@ Window_DummyWindow.prototype.initialize = function() {
   Window_Command.prototype.initialize.call(this, x, y);
   this.height = Graphics.boxHeight / 4;
   this.opacity = 0;
+  this.contentsOpacity = 0;
 };
 
 Window_DummyWindow.prototype.maxCols = function() {
   var selection = this.selectionType();
   var playerCreatures = SceneManager._scene._playerCreatures._creatures.length;
-  var enemyCreatures = SceneManager._scene._enemyCreatures._creatures.length
+  var enemyCreatures = SceneManager._scene._enemyCreatures._creatures.length;
+  var cols = 1;
   switch (selection) {
     case 'player':
-      return playerCreatures;
+      cols = playerCreatures;
       break;
     case 'enemy':
-      return enemyCreatures;
+      cols = enemyCreatures;
       break;
     case 'all':
-      return Math.max(playerCreatures, enemyCreatures);
+      cols = Math.max(playerCreatures, enemyCreatures);
       break;
     default:
-      return playerCreatures;
+      cols = playerCreatures;
       break;
   }
+  return Math.max(1, cols);
 };
 
 Window_DummyWindow.prototype.selectionType = function() {
@@ -271,7 +289,7 @@ Window_DummyWindow.prototype.spacing = function() {
   return 12;
 };
 
-Window_DummyWindow.prototype.makeCommandList = function(index) {
+Window_DummyWindow.prototype.makeCommandList = function() {
     for (var i = 0; i < this.maxCols(); ++i) {
       var keyName = '';
       var enabled = this.isKeyEnabled(i);
@@ -291,6 +309,10 @@ Window_DummyWindow.prototype.isKeyEnabled = function(index) {
 
 Window_DummyWindow.prototype.processCardSpecialTargets = function(target, card) {
   var condition = true;
+  if (this.selectionType() === 'enemy' && card.type === 'Creature') {
+    var userIndex = SceneManager._scene._playerCreatures.index();
+    var user = SceneManager._scene._playerCreatures._creatures[userIndex];
+  }
   if (card.specialTargetEval !== '') {
     var creatures = SceneManager._scene._playerCreatures._creatures;
     var handWindow = SceneManager._scene._playerHand;
@@ -307,28 +329,92 @@ Window_DummyWindow.prototype.processCardSpecialTargets = function(target, card) 
       console.log("Error in Card Special Target Eval");
     }
   }
+  if (this.selectionType() === 'enemy' && card.type === 'Creature') {
+    if (user.isStateAffected(11)) condition = false;
+    if (SceneManager._scene.anyDefenderPresent('enemy') && !user.isStateAffected(16) && !target.isStateAffected(15)) condition = false;
+  }
   return condition;
 };
 
+Window_DummyWindow.prototype.cursorRight = function(wrap) {
+  if (this.selectionType() === 'enemy' && this.index() === this.maxCols()-1 && SceneManager._scene._selectionWindow.isCreature()) {
+    this.deactivate();
+    SceneManager._scene._dummyEnemy.activate();
+    SceneManager._scene._dummyEnemy.select(0);
+  } else {
+    Window_Command.prototype.cursorRight.call(this, wrap);
+  }
+};
+
 //=============================================================================
-// Window_EnemyDummyWindow
+// Window_DummyEnemy
 //=============================================================================
 
-/*function Window_EnemyDummyWindow() {
+function Window_DummyEnemy() {
     this.initialize.apply(this, arguments);
 };
 
-Window_EnemyDummyWindow.prototype = Object.create(Window_Command.prototype);
-Window_EnemyDummyWindow.prototype.constructor = Window_EnemyDummyWindow;
+Window_DummyEnemy.prototype = Object.create(Window_Command.prototype);
+Window_DummyEnemy.prototype.constructor = Window_DummyEnemy;
 
-Window_EnemyDummyWindow.prototype.initialize = function() {
-  //var h = Graphics.boxHeight;
-  var x = SceneManager._scene.;
-  var y = 0;
-  this._selection = 'player';
-  this._card;
-  //this._graveyardSelection = SceneManager._scene._playerHand._graveyard;
+Window_DummyEnemy.prototype.initialize = function(x, y) {
+  this._sX = x;
+  this._enemy = SceneManager._scene._enemy._nexusCard; // Game_Enemy
+  this._nexusCard = this._enemy;
+  //this._attackingCreature;
+  var h = Graphics.boxHeight/4;
   Window_Command.prototype.initialize.call(this, x, y);
-  this.height = Graphics.boxHeight / 4;
+  this.height = h;
   this.opacity = 0;
-};*/
+  this.contentsOpacity = 0;
+};
+
+Window_DummyEnemy.prototype.refresh = function() {
+  var attackIndex = SceneManager._scene._playerCreatures.index();
+  this._attackingCreature = SceneManager._scene._playerCreatures._creatures[attackIndex];
+  Window_Command.prototype.refresh.call(this)
+};
+
+Window_DummyEnemy.prototype.windowWidth = function() {
+  return Graphics.boxWidth - this._sX - this.standardPadding();
+};
+
+Window_DummyEnemy.prototype.maxCols = function() {
+  return 1;
+};
+
+Window_DummyEnemy.prototype.maxItems = function() {
+  return 1;
+};
+
+Window_DummyEnemy.prototype.makeCommandList = function() {
+  this.addCommand('', 'ok', this.isEnemyAttackable());
+};
+
+Window_DummyEnemy.prototype.isEnemyAttackable = function() {
+  if (!this._attackingCreature) return false;
+  if (this._attackingCreature.isStateAffected(12)) return false;
+  if (SceneManager._scene.anyDefenderPresent('enemy') && !this._attackingCreature.isStateAffected(16)) return false;
+  return true;
+};
+
+Window_DummyEnemy.prototype.itemWidth = function() {
+  return this.windowWidth() - 2*this.standardPadding();
+};
+
+Window_DummyEnemy.prototype.itemHeight = function() {
+  return this.height - 2*this.standardPadding();
+};
+
+Window_DummyEnemy.prototype.cursorLeft = function(wrap) {
+  var scene = SceneManager._scene;
+  var enemyCreatures = scene._enemyCreatures._creatures;
+  var canAttackCreature = SceneManager._scene.canAttackCreature(this._attackingCreature);
+  if (enemyCreatures.length > 0 && canAttackCreature) {
+    this.deactivate();
+    this.deselect();
+    scene._dummyWindow.activate();
+    if (scene._dummyWindow.index() >= 0) scene._dummyWindow.reselect();
+    else scene._dummyWindow.select(scene._dummyWindow.maxCols()-1);
+  }
+};
