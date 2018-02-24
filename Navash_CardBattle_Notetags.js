@@ -6,6 +6,10 @@ DataManager.isDatabaseLoaded = function() {
     this.processRequirementTags($dataItems);
     this.processTargetTags($dataItems);
     this.processEffectTags($dataItems);
+    this.processEnemyTags($dataEnemies);
+    this.processSpecialEffectTags($dataItems);
+    this.processSpecialEffectTags($dataEnemies);
+    this.processStateTags($dataStates);
     this._loadComplete = true;
   }
   return true;
@@ -36,6 +40,42 @@ DataManager.processTypeTags = function(group) {
         obj.cost = Number(RegExp.$1);
       } else if (line.match(note4)) {
         obj.sp = Number(RegExp.$1);
+      }
+    } // End of notedata for loop
+  } // End of all item for loop
+};
+
+DataManager.processEnemyTags = function(group) {
+  var note1 = /<(?:ATTACK COUNT):[ ](\d+)>/i;
+
+  for (var n = 1; n < group.length; n++) {
+    var obj = group[n];
+    var notedata = obj.note.split(/[\r\n]+/);
+
+    obj.attackCount = 1;
+
+    for (var i = 0; i < notedata.length; i++) {
+      var line = notedata[i];
+      if (line.match(note1)) {
+        obj.attackCount = parseInt(RegExp.$1);
+      }
+    } // End of notedata for loop
+  } // End of all item for loop
+};
+
+DataManager.processStateTags = function(group) {
+  var note1 = /<(?:STATE TYPE):[ ](.*)>/i;
+
+  for (var n = 1; n < group.length; n++) {
+    var obj = group[n];
+    var notedata = obj.note.split(/[\r\n]+/);
+
+    obj.type = '';
+
+    for (var i = 0; i < notedata.length; i++) {
+      var line = notedata[i];
+      if (line.match(note1)) {
+        obj.type = String(RegExp.$1);
       }
     } // End of notedata for loop
   } // End of all item for loop
@@ -115,6 +155,29 @@ DataManager.processEffectTags = function(group) {
         evalMode = 'none';
       } else if (evalMode === 'effect eval') {
         obj.effectEval = obj.effectEval + line + '\n';
+      } 
+    } // End of notedata for loop
+  } // End of all item for loop
+};
+
+DataManager.processSpecialEffectTags = function(group) {
+  var noteStart = /<(?:ON SUMMON)>/i;
+  var noteEnd = /<\/(?:ON SUMMON)>/i;
+  for (var n = 1; n < group.length; n++) {
+    var obj = group[n];
+    var notedata = obj.note.split(/[\r\n]+/);
+
+    obj.onSummonEval = '';
+    var evalMode = 'none';
+
+    for (var i = 0; i < notedata.length; i++) {
+      var line = notedata[i];
+      if (line.match(noteStart)) {
+        evalMode = 'on summon eval';
+      } else if (line.match(noteEnd)) {
+        evalMode = 'none';
+      } else if (evalMode === 'on summon eval') {
+        obj.onSummonEval = obj.onSummonEval + line + '\n';
       } 
     } // End of notedata for loop
   } // End of all item for loop
