@@ -10,15 +10,27 @@ Scene_CardBattle.prototype = Object.create(Scene_Battle.prototype);
 Scene_CardBattle.prototype.constructor = Scene_CardBattle;
 
 Scene_CardBattle.prototype.initialize = function() {
+  this._interpreter = new Game_Interpreter();
+  this._interpreter.clear();
   this._checkImgShowing = false;
   this._noWindowActiveOk = false;
   this._gameEnd = false;
   Scene_Battle.prototype.initialize.call(this);
 };
 
+Scene_CardBattle.prototype.isEventRunning = function() {
+    return this._interpreter.isRunning();
+};
+
+Scene_CardBattle.prototype.updateInterpreter = function() {
+    this._interpreter.update();
+};
+
 Scene_CardBattle.prototype.update = function() {
   Scene_Base.prototype.update.call(this);
-  if (this._gameEnd && Input.isTriggered('ok')) SceneManager.goto(Scene_Map);;
+  this.updateInterpreter();
+  if (this._gameEnd && Input.isTriggered('ok')) SceneManager.goto(Scene_Map);
+  if (this.isEventRunning()) return;
   if (this.needsDisable()) this.disableAllWindows();
   if (this.needsActivation()) this._playerHand.activate();
   if (this._checkImgShowing) this.updateCheckImg();
@@ -143,10 +155,23 @@ Scene_CardBattle.prototype.create = function() {
   this.createPlayerWindows();
   this.createEnemyWindows();
   this.createSelectionWindows();
+  this.rearrangeWindows();
   var index = this._windowLayer.children.indexOf(this._messageWindow);
   this._windowLayer.children.splice(index, 1);
   this.addWindow(this._messageWindow);
   this.refreshWindows();
+};
+
+Scene_CardBattle.prototype.rearrangeWindows = function() {
+  var index = this._windowLayer.children.indexOf(this._messageWindow);
+  this._windowLayer.children.splice(index, 1);
+  this.addWindow(this._messageWindow);
+  index = this._windowLayer.children.indexOf(this._messageWindow._choiceWindow);
+  this._windowLayer.children.splice(index, 1);
+  this.addWindow(this._messageWindow._choiceWindow);
+  index = this._windowLayer.children.indexOf(this._logWindow);
+  this._windowLayer.children.splice(index, 1);
+  this.addWindow(this._logWindow);
 };
 
 Scene_CardBattle.prototype.createPlayerWindows = function() {
@@ -394,7 +419,58 @@ Scene_CardBattle.prototype.onHandOk = function() {
 };
 
 Scene_CardBattle.prototype.onHandCancel = function() {
-  SceneManager.goto(Scene_Map);
+  //SceneManager.goto(Scene_Map);
+  $gameMessage.add("End your turn?");
+  $gameMessage.setChoices(['Yes','No'], 0, 1);
+  $gameMessage.setChoiceCallback(function(response) {
+    if (response === 0) {
+      SceneManager._scene.changeTurn('enemy');
+    } else {
+      return;
+    }
+  });
+};
+
+Scene_CardBattle.prototype.changeTurn = function(nextTurn) {
+  this.clearAllBuffs();
+  this.resetAllAttackCounts();
+  if (nextTurn == 'enemy') {
+    this.setNoWindowActiveOk(true);
+    this.disableAllWindows();
+    var opponent = Robert;
+    this._enemyHand.addSp(1);
+    this._enemyHand.drawCard(1);
+    opponent.startTurn();
+  } else {
+    this.setNoWindowActiveOk(false);
+    this._playerHand.addSp(1);
+    this._playerHand.drawCard(1);
+    this._playerHand.activate();
+    this._playerHand.select(0);
+  }
+  this.refreshWindows();
+};
+
+Scene_CardBattle.prototype.clearAllBuffs = function() {
+  var playerCreatures = this._playerCreatures._creatures;
+  var enemyCreatures = this._enemyCreatures._creatures;
+  for (var i = 0; i<playerCreatures.length; i++) {
+    playerCreatures[i].clearBuffs();
+  }
+  for (var i = 0; i<enemyCreatures.length; i++) {
+    enemyCreatures[i].clearBuffs();
+  }
+};
+
+Scene_CardBattle.prototype.resetAllAttackCounts = function() {
+  var playerCreatures = this._playerCreatures._creatures;
+  var enemyCreatures = this._enemyCreatures._creatures;
+  for (var i = 0; i<playerCreatures.length; i++) {
+    playerCreatures[i].resetAttackCount();
+  }
+  for (var i = 0; i<enemyCreatures.length; i++) {
+    enemyCreatures[i].resetAttackCount();
+  }
 };
 
 Scene_CardBattle.prototype.onPlayerCreatureOk = function() {
@@ -768,10 +844,10 @@ Scene_CardBattle.prototype.processCreatureDeath = function(creature, index, card
   var side = creature._tag;
   if (side === 'player') {
     this._playerCreatures.discard(index);
-    this._enemyHand.addSp(card.sp);
+    this._enemyHand.addSp(card.cost);
   } else if (side === 'enemy') {
     this._enemyCreatures.discard(index);
-    this._playerHand.addSp(card.sp);
+    this._playerHand.addSp(card.cost);
   }
 };
 
@@ -789,12 +865,16 @@ Scene_CardBattle.prototype.useSpellCard = function(target, targetIndex, card) {
 
 Scene_CardBattle.prototype.processSpellEffects = function(target, targetIndex, card) {
   if (card.effectEval === '') return;
+    var handWindow = SceneManager._scene._playerHand;
+    var enemyHandWindow = SceneManager._scene._enemyHand;
     var creatures = SceneManager._scene._playerCreatures._creatures;
-    var hand = SceneManager._scene._playerHand._hand;
-    var deck = SceneManager._scene._playerHand._deck;
-    var graveyard = SceneManager._scene._playerHand._graveyard;
+    var hand = handWindow._hand;
+    var enemyHand = enemyHandWindow._hand;
+    var deck = handWindow._deck;
+    var enemyDeck = enemyHandWindow._deck; 
+    var graveyard = handWindow._graveyard;
+    var enemyGraveyard = enemyHandWindow._graveyard;
     var enemyCreatures = SceneManager._scene._enemyCreatures._creatures;
-    var index = targetIndex;
     var targetCard = $dataItems[target._enemyId];
     var s = $gameSwitches._data;
     var v = $gameVariables._data;
@@ -808,11 +888,15 @@ Scene_CardBattle.prototype.processSpellEffects = function(target, targetIndex, c
 
 Scene_CardBattle.prototype.processSpellEffectsNoTarget = function(card) {
   if (card.effectEval === '') return;
-    var creatures = SceneManager._scene._playerCreatures._creatures;
     var handWindow = SceneManager._scene._playerHand;
+    var enemyHandWindow = SceneManager._scene._enemyHand;
+    var creatures = SceneManager._scene._playerCreatures._creatures;
     var hand = handWindow._hand;
+    var enemyHand = enemyHandWindow._hand;
     var deck = handWindow._deck;
-    var graveyardWindow = handWindow._graveyard;
+    var enemyDeck = enemyHandWindow._deck; 
+    var graveyard = handWindow._graveyard;
+    var enemyGraveyard = enemyHandWindow._graveyard;
     var enemyCreatures = SceneManager._scene._enemyCreatures._creatures;
     var s = $gameSwitches._data;
     var v = $gameVariables._data;
@@ -826,12 +910,16 @@ Scene_CardBattle.prototype.processSpellEffectsNoTarget = function(card) {
 
 Scene_CardBattle.prototype.processOnSummonEffects = function(card) {
   if (card.onSummonEval === '') return;
+    var handWindow = SceneManager._scene._playerHand;
+    var enemyHandWindow = SceneManager._scene._enemyHand;
     var creatures = SceneManager._scene._playerCreatures._creatures;
     var playerCreatures = creatures;
-    var handWindow = SceneManager._scene._playerHand;
     var hand = handWindow._hand;
+    var enemyHand = enemyHandWindow._hand;
     var deck = handWindow._deck;
-    var graveyardWindow = handWindow._graveyard;
+    var enemyDeck = enemyHandWindow._deck; 
+    var graveyard = handWindow._graveyard;
+    var enemyGraveyard = enemyHandWindow._graveyard;
     var enemyCreatures = SceneManager._scene._enemyCreatures._creatures;
     var s = $gameSwitches._data;
     var v = $gameVariables._data;
