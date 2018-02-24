@@ -150,15 +150,20 @@ Window_CardSelection.prototype.canAttack = function(card) {
 
 Window_CardSelection.prototype.processCanCreatureUse = function(card) {
   var condition = true;
-  if (card.requireEval !== '') {
+  if (card.requirementEval !== '') {
+    var handWindow = SceneManager._scene._playerHand;
+    var enemyHandWindow = SceneManager._scene._enemyHand;
     var creatures = SceneManager._scene._playerCreatures._creatures;
-    var hand = SceneManager._scene._playerHand._hand;
-    var deck = SceneManager._scene._playerHand._deck;
-    var graveyard = SceneManager._scene._playerHand._graveyard;
+    var hand = handWindow._hand;
+    var enemyHand = enemyHandWindow._hand;
+    var deck = handWindow._deck;
+    var enemyDeck = enemyHandWindow._deck; 
+    var graveyard = handWindow._graveyard;
+    var enemyGraveyard = enemyHandWindow._graveyard;
     var enemyCreatures = SceneManager._scene._enemyCreatures._creatures;
     var s = $gameSwitches._data;
     var v = $gameVariables._data;
-    var code = card.requireEval;
+    var code = card.requirementEval;
     try {
       eval(code);
     } catch (e) {
@@ -172,10 +177,15 @@ Window_CardSelection.prototype.processCanCreatureUse = function(card) {
 Window_CardSelection.prototype.processCanSpellUse = function(card) {
   var condition = true;
   if (card.requirementEval !== '') {
+    var handWindow = SceneManager._scene._playerHand;
+    var enemyHandWindow = SceneManager._scene._enemyHand;
     var creatures = SceneManager._scene._playerCreatures._creatures;
-    var hand = SceneManager._scene._playerHand._hand;
-    var deck = SceneManager._scene._playerHand._deck;
-    var graveyard = SceneManager._scene._playerHand._graveyard;
+    var hand = handWindow._hand;
+    var enemyHand = enemyHandWindow._hand;
+    var deck = handWindow._deck;
+    var enemyDeck = enemyHandWindow._deck; 
+    var graveyard = handWindow._graveyard;
+    var enemyGraveyard = enemyHandWindow._graveyard;
     var enemyCreatures = SceneManager._scene._enemyCreatures._creatures;
     var s = $gameSwitches._data;
     var v = $gameVariables._data;
@@ -314,11 +324,15 @@ Window_DummyWindow.prototype.processCardSpecialTargets = function(target, card) 
     var user = SceneManager._scene._playerCreatures._creatures[userIndex];
   }
   if (card.specialTargetEval !== '') {
-    var creatures = SceneManager._scene._playerCreatures._creatures;
     var handWindow = SceneManager._scene._playerHand;
+    var enemyHandWindow = SceneManager._scene._enemyHand;
+    var creatures = SceneManager._scene._playerCreatures._creatures;
     var hand = handWindow._hand;
+    var enemyHand = enemyHandWindow._hand;
     var deck = handWindow._deck;
+    var enemyDeck = enemyHandWindow._deck; 
     var graveyard = handWindow._graveyard;
+    var enemyGraveyard = enemyHandWindow._graveyard;
     var enemyCreatures = SceneManager._scene._enemyCreatures._creatures;
     var s = $gameSwitches._data;
     var v = $gameVariables._data;
