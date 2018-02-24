@@ -10,17 +10,13 @@ Window_Base.prototype.drawGaugeEx = function(dx, dy, dw, dh, rate, color1, color
   var fillW = Math.floor(dw * rate).clamp(0, dw);
   var gaugeH = dh;
   var gaugeY = dy;
-  if (eval(Yanfly.Param.GaugeOutline)) {
+
     color3.paintOpacity = this.translucentOpacity();
     this.contents.fillRect(dx, gaugeY - 1, dw, gaugeH, color3);
     fillW = Math.max(fillW - 2, 0);
     gaugeH -= 2;
     dx += 1;
-  } else {
-    var fillW = Math.floor(dw * rate);
-    var gaugeY = dy + this.lineHeight() - gaugeH - 2;
-    this.contents.fillRect(dx, gaugeY, dw, gaugeH, color3);
-  }
+
   this.contents.gradientFillRect(dx, gaugeY, fillW, gaugeH, color1, color2);
 };
 //=============================================================================
@@ -41,6 +37,9 @@ Window_PlayerCreatures.prototype.initialize = function() {
   var y = Graphics.boxHeight / 2;
   this._creatures = [];
   this._creaturePics = [];
+  this._discardCardAnim = [];
+  this._speedX = 30;
+  this._speedY = 10;
 	Window_Command.prototype.initialize.call(this, x, y);
   this.x = (Graphics.boxWidth - this.width)/2;
   //this.width = w;
@@ -61,6 +60,7 @@ Window_PlayerCreatures.prototype.drawItem = function(index) {
     this.clearCreaturePics(index);
     this.drawCreaturePics(index);
     this.drawCreatureDetails(index);
+    this.drawStateIcons(index);
 };
 
 Window_PlayerCreatures.prototype.clearCreaturePics = function(index) {
@@ -105,30 +105,111 @@ Window_PlayerCreatures.prototype.drawCreatureDetails = function(index) {
   this.drawText(text, x, y, maxW, align);
 };
 
-/*Window_PlayerCreatures.prototype.drawCreaturePics = function() {
-  var creatures = this._creatures;
-  for (var i=0; i<creatures.length; i++) {
-    var rect = this.itemRect(i);
-    //var item = $dataItems[creatures[i].id];
-    var filename = $dataEnemies[creatures[i].enemyId()].name;
-    var img = ImageManager.loadPicture(filename);
-    this._creaturePics[i] = new Sprite_Base();
-    this._creaturePics[i].bitmap = ImageManager.loadPicture(filename);
-    this._creaturePics[i].x = rect.x + this.standardPadding();
-    this._creaturePics[i].y = this.standardPadding();
-    this._creaturePics[i].scale.x = this.itemWidth()/108; 
-    this._creaturePics[i].scale.y = this.itemHeight()/144;
-    this.addChild(this._creaturePics[i]);
+Window_PlayerCreatures.prototype.drawStateIcons = function(index) {
+  if (index >= this._creatures.length) return;
+  var monster = this._creatures[index];
+  var rect = this.itemRect(index);
+  this.drawTopRightIcon(monster, rect);
+  this.drawBottomLeftIcon(monster, rect);
+  this.drawBottomRightIcon(monster, rect);
+};
+
+Window_PlayerCreatures.prototype.drawTopRightIcon = function(monster, rect) {
+  var x = rect.x + rect.width - this.textPadding() - 32;
+  var y = rect.y + this.textPadding();
+  var sick = 14;
+  var fatigued = 18;
+  var ailment = this.getAilment(monster);
+  var sickIcon = $dataStates[sick].iconIndex;
+  var fatiguedIcon = $dataStates[fatigued].iconIndex;
+  if (ailment) var ailmentIcon = ailment.iconIndex;
+  if (monster.isStateAffected(sick)) this.drawIcon(sickIcon, x, y);
+  else if (monster.isStateAffected(fatigued)) this.drawIcon(fatiguedIcon, x, y);
+  else if (ailment) this.drawIcon(ailmentIcon, x, y);
+};
+
+Window_PlayerCreatures.prototype.drawBottomLeftIcon = function(monster, rect) {
+  var x = rect.x + this.textPadding();
+  var y = rect.y + rect.height - this.textPadding() - 32;
+  var atkBuffIcon = 34;
+  if (monster._buffs[2] > 0) this.drawIcon(atkBuffIcon, x, y);
+};
+
+Window_PlayerCreatures.prototype.drawBottomRightIcon = function(monster, rect) {
+  var x = rect.x + rect.width - this.textPadding() - 32;
+  var y = rect.y + rect.height - this.textPadding() - 32;
+  var property = this.getProperty(monster);
+  if (!property) return;
+  var propertyIcon = property.iconIndex;
+  if (propertyIcon) this.drawIcon(propertyIcon, x, y);
+};
+
+Window_PlayerCreatures.prototype.getAilment = function(monster) {
+  var states = monster.states();
+  if (!states) return;
+  var affectedAilments = [];
+  for (var i=0; i<states.length; i++) {
+    var state = states[i];
+    if (state.type == 'Ailment') affectedAilments.push(state);
+  }
+  if (affectedAilments.length < 1) return;
+  var priority = affectedAilments.map(x => x.priority);
+  var index = priority.reduce((maxIndex, x, i, arr) => x >= arr[maxIndex] ? i : maxIndex, 0);
+  return affectedAilments[index];
+};
+
+Window_PlayerCreatures.prototype.getProperty = function(monster) {
+  var states = monster.states();
+  if (!states) return;
+  var properties = [];
+  for (var i=0; i<states.length; i++) {
+    var state = states[i];
+    if (state.type == 'Property') properties.push(state);
+  }
+  if (properties.length < 1) return;
+  var priority = properties.map(x => x.priority);
+  var index = priority.reduce((maxIndex, x, i, arr) => x >= arr[maxIndex] ? i : maxIndex, 0);
+  return properties[index];
+};
+
+Window_PlayerCreatures.prototype.clearCreatureDetails = function() {
+  this.contents.clear();
+};
+
+Window_PlayerCreatures.prototype.needsDiscardAnim = function() {
+  return this._discardCardAnim.length > 0;
+};
+
+Window_PlayerCreatures.prototype.updateDiscardMovement = function(index) {
+  this.deactivate();
+  var sprite = this._creaturePics[index];
+  var destX = SceneManager._scene._playerGraveyardWindow.x - this.x;
+  var destY = SceneManager._scene._playerGraveyardWindow.y - this.y;
+  if (sprite.x > destX && sprite.y < destY) {
+    sprite.x += this._speedX;
+    sprite.y += this._speedY;
+  } else {
+    var card = $dataItems[this._creatures[index]._enemyId];
+    SceneManager._scene._playerHand._graveyard.push(card);
+    this._creatures.splice(index, 1);
+    if (SceneManager._scene.getPreviousWindow() == this) this.activate();
+    this._discardCardAnim.pop();
+    SceneManager._scene.refreshWindows();
+    //SceneManager._scene._deckWindow.refresh();
   }
 };
 
-Window_PlayerCreatures.prototype.clearCreaturePics = function() {
-  var creaturePics = this._creaturePics;
-  for (var i=0; i<creaturePics.length; i++) {
-    if (creaturePics[i]) this.removeChild(this._creaturePics[i]);
-  }
-  this._creaturePics = [];
-};*/
+Window_PlayerCreatures.prototype.discard = function(index) {
+  if (this._creatures[index] === undefined) return;
+  this.clearCreatureDetails();
+  var srcX = this._creaturePics[index].x;
+  var srcY = this._creaturePics[index].y;
+  var destX = SceneManager._scene._playerGraveyardWindow.x - this.x;
+  var destY = SceneManager._scene._playerGraveyardWindow.y - this.y;
+  this._speedX = (destX - srcX) / 12;
+  this._speedY = (destY - srcY) / 12;
+  this._discardCardAnim.push(index);
+};
 
 Window_PlayerCreatures.prototype.windowWidth = function() {
     //var dim = this.maxCols();
@@ -168,7 +249,9 @@ Window_PlayerCreatures.prototype.makeCommandList = function(index) {
 Window_PlayerCreatures.prototype.add = function(card) {
   //var creature = $dataEnemies[card.id];
   var creature = new Game_Enemy(card.id, 0, 0);
+  creature._tag = 'player';
   this._creatures.push(creature);
+  this.refresh();
 };
 
 /*Window_PlayerCreatures.prototype.processOk = function() {
@@ -260,6 +343,23 @@ Window_PlayerHand.prototype.initialize = function() {
   this.refresh();
 };
 
+Window_PlayerHand.prototype.sp = function() {
+  return this._sp;
+};
+
+Window_PlayerHand.prototype.addSp = function(value) {
+  this._sp += Math.floor(value);
+  this._sp = Math.max(0, this._sp);
+  this.refresh();
+  SceneManager._scene._player.refresh();
+};
+
+Window_PlayerHand.prototype.reselect = function() {
+  var index = this._index;
+  index = index.clamp(0, this.maxCols()-1);
+  this.select(index);
+};
+
 Window_PlayerHand.prototype.refresh = function() {
   this.width = this.windowWidth();
   this.x = (Graphics.boxWidth - this.width)/2;
@@ -343,7 +443,7 @@ Window_PlayerHand.prototype.updateDiscardMovement = function(index) {
   } else {
     this._graveyard.push(this._hand[index]);
     this._hand.splice(index, 1);
-    this.activate();
+    if (SceneManager._scene.getPreviousWindow() == this) this.activate();
     this._discardCardAnim.pop();
     SceneManager._scene.refreshWindows();
     //SceneManager._scene._deckWindow.refresh();
@@ -847,7 +947,7 @@ Window_Player.prototype.drawSp = function(x, y) {
   this._spImg.y = y;
   this.addChild(this._spImg);
   var w = this.windowWidth() - x - 2 * this.standardPadding();
-  var sp = SceneManager._scene._playerHand._sp;
+  var sp = SceneManager._scene._playerHand.sp();
   this.drawText(sp, x+0.5*w-10, y-this.standardPadding(), 0.25*w, 'right');
   this.drawIcon(248, x+0.75*w-8, y-this.standardPadding());
   y += this.lineHeight() + this.textPadding();
