@@ -16,48 +16,180 @@ Window_EnemyCreatures.prototype.initialize = function() {
   var y = Graphics.boxHeight / 4;
   this._creatures = [];
   this._creaturePics = [];
+  this._discardCardAnim = [];
+  this._speedX = 30;
+  this._speedY = 10;
   Window_Command.prototype.initialize.call(this, x, y);
   this.x = (Graphics.boxWidth - this.width)/2;
   //this.width = w;
   this.height = h;
+  var textLayer = this.removeChildAt(2);
+  this.addChild(textLayer);
+  /*this.createPieces();
+  this.allocatePieces();
+  this.refresh();
+  this.activate();
+  this.select(0);
+  */
 };
 
 Window_EnemyCreatures.prototype.drawItem = function(index) {
-    this.drawItemRect(index);
+    //this.drawItemRect(index);
     //Window_Command.prototype.drawItem.call(this, index);
-    this.clearCreaturePics();
-    this.drawCreaturePics();
+    this.clearCreaturePics(index);
+    this.drawCreaturePics(index);
+    this.drawCreatureDetails(index);
+    this.drawStateIcons(index);
 };
 
-Window_EnemyCreatures.prototype.drawCreaturePics = function() {
-  var creatures = this._creatures;
-  for (var i=0; i<creatures.length; i++) {
-    var rect = this.itemRect(i);
-    //var item = $dataItems[creatures[i].id];
-    var filename = $dataEnemies[creatures[i].enemyId()].name;
-    var img = ImageManager.loadPicture(filename);
-    this._creaturePics[i] = new Sprite_Base();
-    this._creaturePics[i].bitmap = ImageManager.loadPicture(filename);
-    this._creaturePics[i].x = rect.x + this.standardPadding();
-    this._creaturePics[i].y = this.standardPadding();
-    this._creaturePics[i].scale.x = this.itemWidth()/72; 
-    this._creaturePics[i].scale.y = this.itemHeight()/108;
-    this.addChild(this._creaturePics[i]);
-  }
-};
-
-Window_EnemyCreatures.prototype.clearCreaturePics = function() {
+Window_EnemyCreatures.prototype.clearCreaturePics = function(index) {
   var creaturePics = this._creaturePics;
-  for (var i=0; i<creaturePics.length; i++) {
-    if (creaturePics[i]) this.removeChild(this._creaturePics[i]);
+  if (index >= creaturePics.length) return;
+  if (creaturePics[index]) this.removeChild(this._creaturePics[index]);
+  //this._creaturePics = [];
+};
+
+Window_EnemyCreatures.prototype.drawCreaturePics = function(index) {
+  if (index >= this._creatures.length) return;
+  var creatures = this._creatures;
+  var i = index;
+  if (this._creaturePics[i] && this.children.contains(this._creaturePics[i])) this.removeChild(this._creaturePics[i]);
+  var rect = this.itemRect(i);
+  var filename = $dataEnemies[creatures[i].enemyId()].name + '_inverted';
+  var img = ImageManager.loadPicture(filename);
+  this._creaturePics[i] = new Sprite_Base();
+  this._creaturePics[i].bitmap = ImageManager.loadPicture(filename);
+  this._creaturePics[i].x = rect.x + this.standardPadding();
+  this._creaturePics[i].y = this.standardPadding();
+  this._creaturePics[i].scale.x = this.itemWidth()/108; 
+  this._creaturePics[i].scale.y = this.itemHeight()/144;
+  this.addChildAt(this._creaturePics[i], this.children.length - 2);
+};
+
+Window_EnemyCreatures.prototype.drawCreatureDetails = function(index) {
+  if (index >= this._creatures.length) return;
+  var monster = this._creatures[index];
+  var hp = monster.hp;
+  var atk = monster.atk;
+  this.resetFontSettings();
+  var rect = this.itemRect(index);
+  var x = rect.x + this.textPadding();
+  var y = rect.y + 0.25*this.itemHeight();
+  var align = 'center';
+  var maxW = this.itemWidth() - 2*this.textPadding();
+  var text = "HP: " + hp;
+  this.drawText(text, x, y, maxW, align);
+  y += this.lineHeight();
+  text = "ATK: " + atk;
+  this.drawText(text, x, y, maxW, align);
+};
+
+Window_EnemyCreatures.prototype.drawStateIcons = function(index) {
+  if (index >= this._creatures.length) return;
+  var monster = this._creatures[index];
+  var rect = this.itemRect(index);
+  this.drawTopRightIcon(monster, rect);
+  this.drawBottomLeftIcon(monster, rect);
+  this.drawTopLeftIcon(monster, rect);
+};
+
+Window_EnemyCreatures.prototype.drawTopRightIcon = function(monster, rect) {
+  var x = rect.x + rect.width - this.textPadding() - 32;
+  var y = rect.y + this.textPadding();
+  var atkBuffIcon = 34;
+  if (monster._buffs[2] > 0) this.drawIcon(atkBuffIcon, x, y);
+};
+
+Window_EnemyCreatures.prototype.drawBottomLeftIcon = function(monster, rect) {
+  var x = rect.x + this.textPadding();
+  var y = rect.y + rect.height - this.textPadding() - 32;
+  var sick = 14;
+  var fatigued = 18;
+  var ailment = this.getAilment(monster);
+  var sickIcon = $dataStates[sick].iconIndex;
+  var fatiguedIcon = $dataStates[fatigued].iconIndex;
+  if (ailment) var ailmentIcon = ailment.iconIndex;
+  if (monster.isStateAffected(sick)) this.drawIcon(sickIcon, x, y);
+  else if (monster.isStateAffected(fatigued)) this.drawIcon(fatiguedIcon, x, y);
+  else if (ailment) this.drawIcon(ailmentIcon, x, y);
+};
+
+Window_EnemyCreatures.prototype.drawTopLeftIcon = function(monster, rect) {
+  var x = rect.x + this.textPadding();
+  var y = rect.y + this.textPadding();
+  var property = this.getProperty(monster);
+  if (!property) return;
+  var propertyIcon = property.iconIndex;
+  if (propertyIcon) this.drawIcon(propertyIcon, x, y);
+};
+
+Window_EnemyCreatures.prototype.getAilment = function(monster) {
+  var states = monster.states();
+  if (!states) return;
+  var affectedAilments = [];
+  for (var i=0; i<states.length; i++) {
+    var state = states[i];
+    if (state.type == 'Ailment') affectedAilments.push(state);
   }
-  this._creaturePics = [];
+  if (affectedAilments.length < 1) return;
+  var priority = affectedAilments.map(x => x.priority);
+  var index = priority.reduce((maxIndex, x, i, arr) => x >= arr[maxIndex] ? i : maxIndex, 0);
+  return affectedAilments[index];
+};
+
+Window_EnemyCreatures.prototype.getProperty = function(monster) {
+  var states = monster.states();
+  if (!states) return;
+  var properties = [];
+  for (var i=0; i<states.length; i++) {
+    var state = states[i];
+    if (state.type == 'Property') properties.push(state);
+  }
+  if (properties.length < 1) return;
+  var priority = properties.map(x => x.priority);
+  var index = priority.reduce((maxIndex, x, i, arr) => x >= arr[maxIndex] ? i : maxIndex, 0);
+  return properties[index];
+};
+
+Window_EnemyCreatures.prototype.clearCreatureDetails = function() {
+  this.contents.clear();
+};
+
+Window_EnemyCreatures.prototype.needsDiscardAnim = function() {
+  return this._discardCardAnim.length > 0;
+};
+
+Window_EnemyCreatures.prototype.updateDiscardMovement = function(index) {
+  this.deactivate();
+  var sprite = this._creaturePics[index];
+  var destX = SceneManager._scene._enemyGraveyardWindow.x - this.x;
+  var destY = SceneManager._scene._enemyGraveyardWindow.y - this.y;
+  if (sprite.x < destX && sprite.y > destY) {
+    sprite.x += this._speedX;
+    sprite.y += this._speedY;
+  } else {
+    var card = $dataItems[this._creatures[index]._enemyId];
+    SceneManager._scene._enemyHand._graveyard.push(card);
+    this._creatures.splice(index, 1);
+    if (SceneManager._scene.getPreviousWindow() == this) this.activate();
+    this._discardCardAnim.pop();
+    SceneManager._scene.refreshWindows();
+  }
+};
+
+Window_EnemyCreatures.prototype.discard = function(index) {
+  if (this._creatures[index] === undefined) return;
+  this.clearCreatureDetails();
+  var srcX = this._creaturePics[index].x;
+  var srcY = this._creaturePics[index].y;
+  var destX = SceneManager._scene._enemyGraveyardWindow.x - this.x;
+  var destY = SceneManager._scene._enemyGraveyardWindow.y - this.y;
+  this._speedX = (destX - srcX) / 12;
+  this._speedY = (destY - srcY) / 12;
+  this._discardCardAnim.push(index);
 };
 
 Window_EnemyCreatures.prototype.windowWidth = function() {
-    //var dim = this.maxCols();
-    //dim = dim.clamp(1, 5);
-    //return dim * this.itemWidth() + 2 * this.standardPadding() + this.spacing() * (dim-1);
     return 624;
 };
 
@@ -84,13 +216,34 @@ Window_EnemyCreatures.prototype.itemTextAlign = function() {
 Window_EnemyCreatures.prototype.makeCommandList = function(index) {
     for (var i = 0; i < 5; ++i) {
       var keyName = i.toString();
-      var enabled = true;
+      var enabled = this.isKeyEnabled(i);
       this.addCommand(keyName, 'ok', enabled);
     }
 };
 
-Window_EnemyCreatures.prototype.isKeyEnabled = function(keyName) {
-  return true;
+Window_EnemyCreatures.prototype.add = function(card) {
+  //var creature = $dataEnemies[card.id];
+  var creature = new Game_Enemy(card.id, 0, 0);
+  creature._tag = 'enemy';
+  this._creatures.push(creature);
+  this.refresh();
+};
+
+/*Window_EnemyCreatures.prototype.processOk = function() {
+    if (this.isCurrentItemEnabled()) {
+        //this.playOkSound();
+        this.updateInputData();
+        this.deactivate();
+        this.callOkHandler();
+    } else {
+        this.playBuzzerSound();
+    }
+};*/
+
+Window_EnemyCreatures.prototype.isKeyEnabled = function(index) {
+  var creatureLength = this._creatures.length;
+  if (index < creatureLength) return true;
+  return false;
 };
 
 Window_EnemyCreatures.prototype.drawItemRect = function(index) {
@@ -103,12 +256,6 @@ Window_EnemyCreatures.prototype.drawRect = function(dx, dy, dw, dh, color) {
     this.changePaintOpacity(false);
     this.contents.fillRect(dx, dy, dw, dh, color);
     this.changePaintOpacity(true);
-};
-
-Window_EnemyCreatures.prototype.add = function(card) {
-  //var creature = $dataEnemies[card.id];
-  var creature = new Game_Enemy(card.id, 0, 0);
-  this._creatures.push(creature);
 };
 
 Window_EnemyCreatures.prototype.cursorDown = function(wrap) {
@@ -130,7 +277,6 @@ Window_EnemyCreatures.prototype.cursorRight = function(wrap) {
       Window_Command.prototype.cursorRight.call(this, wrap);
     }
 };
-
 
 //=============================================================================
 // Window_EnemyHand
@@ -162,6 +308,17 @@ Window_EnemyHand.prototype.initialize = function() {
   //this.drawHandCards();
   //this.width = w;
   this.refresh();
+};
+
+Window_EnemyHand.prototype.sp = function() {
+  return this._sp;
+};
+
+Window_EnemyHand.prototype.addSp = function(value) {
+  this._sp += Math.floor(value);
+  this._sp = Math.max(0, this._sp);
+  this.refresh();
+  SceneManager._scene._enemy.refresh();
 };
 
 Window_EnemyHand.prototype.refresh = function() {
@@ -238,16 +395,16 @@ Window_EnemyHand.prototype.needsDiscardAnim = function() {
 };
 
 Window_EnemyHand.prototype.updateDiscardMovement = function(index) {
-  this.deactivate();
+  //this.deactivate();
   var sprite = this._handPic[index];
   var speed = 30;
-  var dest = SceneManager._scene._playerGraveyardWindow.x - this.x;
+  var dest = SceneManager._scene._enemyGraveyardWindow.x - this.x;
   if (sprite.x < dest) {
     sprite.x += speed;
   } else {
     this._graveyard.push(this._hand[index]);
     this._hand.splice(index, 1);
-    this.activate();
+    //this.activate();
     this._discardCardAnim.pop();
     SceneManager._scene.refreshWindows();
     //SceneManager._scene._deckWindow.refresh();
@@ -733,7 +890,7 @@ Window_Enemy.prototype.drawSp = function(x, y) {
   this._spImg.y = y;
   this.addChild(this._spImg);
   var w = this.windowWidth() - x - 2 * this.standardPadding();
-  var sp = SceneManager._scene._playerHand._sp;
+  var sp = SceneManager._scene._enemyHand.sp();
   this.drawText(sp, x+0.5*w-10, y-this.standardPadding(), 0.25*w, 'right');
   this.drawIcon(248, x+0.75*w-8, y-this.standardPadding());
   y += this.lineHeight() + this.textPadding();
