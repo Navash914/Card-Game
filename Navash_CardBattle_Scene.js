@@ -12,19 +12,39 @@ Scene_CardBattle.prototype.constructor = Scene_CardBattle;
 Scene_CardBattle.prototype.initialize = function() {
   this._checkImgShowing = false;
   this._noWindowActiveOk = false;
+  this._gameEnd = false;
   Scene_Battle.prototype.initialize.call(this);
 };
 
 Scene_CardBattle.prototype.update = function() {
   Scene_Base.prototype.update.call(this);
+  if (this._gameEnd && Input.isTriggered('ok')) SceneManager.goto(Scene_Map);;
+  if (this.needsDisable()) this.disableAllWindows();
   if (this.needsActivation()) this._playerHand.activate();
   if (this._checkImgShowing) this.updateCheckImg();
   if (this._playerHand._drawCardAnim) this._playerHand.updateDrawMovement();
+  if (this._enemyHand._drawCardAnim) this._enemyHand.updateDrawMovement();
   if (this._playerHand.needsDiscardAnim()) {
     var indx = this._playerHand._discardCardAnim.length - 1;
     this._playerHand.updateDiscardMovement(this._playerHand._discardCardAnim[indx]);
   }
+  if (this._enemyHand.needsDiscardAnim()) {
+    var index = this._enemyHand._discardCardAnim.length - 1;
+    this._enemyHand.updateDiscardMovement(this._enemyHand._discardCardAnim[index]);
+  }
+  if (this._playerCreatures.needsDiscardAnim()) {
+    var indX = this._playerCreatures._discardCardAnim.length - 1;
+    this._playerCreatures.updateDiscardMovement(this._playerCreatures._discardCardAnim[indX]);
+  }
+  if (this._enemyCreatures.needsDiscardAnim()) {
+    var indeX = this._enemyCreatures._discardCardAnim.length - 1;
+    this._enemyCreatures.updateDiscardMovement(this._enemyCreatures._discardCardAnim[indeX]);
+  }
   this.updatePlayerHand();
+};
+
+Scene_CardBattle.prototype.needsDisable = function() {
+  return $gameMessage.isBusy() || this._gameEnd;
 };
 
 Scene_CardBattle.prototype.updatePlayerHand = function() {
@@ -39,7 +59,7 @@ Scene_CardBattle.prototype.needsHandRefresh = function() {
 };
 
 Scene_CardBattle.prototype.needsActivation = function() {
-  return !this.anyWindowActive() && !this.noWindowActiveOk() && !$gameMessage.isBusy();
+  return !this.anyWindowActive() && !this.noWindowActiveOk() && !$gameMessage.isBusy() && !this._gameEnd;
 };
 
 Scene_CardBattle.prototype.updateCheckImg = function() {
@@ -68,8 +88,46 @@ Scene_CardBattle.prototype.anyWindowActive = function() {
   //if (this._enemyDeckWindow.active) active = true;
   //if (this._enemyGraveyardSelection.active) active = true;
   if (this._selectionWindow.active) active = true;
-  if (this._dummyWindow.active) active = true; 
+  if (this._dummyWindow.active) active = true;
+  if (this._dummyEnemy.active) active = true;
   return active;
+};
+
+Scene_CardBattle.prototype.disableAllWindows = function() {
+  this._playerHand.deactivate();
+
+  this._playerCreatures.deactivate();
+  this._playerCreatures.deselect();
+
+  this._playerGraveyardWindow.deactivate();
+  this._playerGraveyardWindow.deselect();
+
+  this._playerGraveyardSelection.deactivate();
+  this._playerGraveyardSelection.deselect();
+
+  this._player.deactivate();
+  this._player.deselect();
+
+  this._enemyHand.deactivate();
+  this._enemyHand.deselect();
+
+  this._enemyCreatures.deactivate();
+  this._enemyCreatures.deselect();
+
+  this._enemyGraveyardWindow.deactivate();
+  this._enemyGraveyardWindow.deselect();
+
+  this._enemy.deactivate();
+  this._enemy.deselect();
+
+  this._selectionWindow.deactivate();
+  this._selectionWindow.deselect();
+
+  this._dummyWindow.deactivate();
+  this._dummyWindow.deselect();
+
+  this._dummyEnemy.deactivate();
+  this._dummyEnemy.deselect();
 };
 
 Scene_CardBattle.prototype.noWindowActiveOk = function() {
@@ -112,6 +170,7 @@ Scene_CardBattle.prototype.createEnemyWindows = function() {
 Scene_CardBattle.prototype.createSelectionWindows = function() {
   this.createSelectionWindow();
   this.createDummySelectWindow();
+  this.createDummyEnemyWindow();
   this.createPlayerGraveyardSelection();
   this.createPlayerGraveyardInfo();
 };
@@ -142,6 +201,7 @@ Scene_CardBattle.prototype.createDeckWindow = function() {
 Scene_CardBattle.prototype.createPlayerGraveyardWindow = function() {
   this._playerGraveyardWindow = new Window_PlayerGraveyard();
   this._playerGraveyardWindow.setHandler('ok', this.onGraveyardOk.bind(this));
+  this._playerGraveyardWindow.setHandler('cancel', this.onGraveyardCancel.bind(this));
   this._playerGraveyardWindow.deactivate();
   this._playerGraveyardWindow.deselect();
   this.addWindow(this._playerGraveyardWindow);
@@ -172,7 +232,7 @@ Scene_CardBattle.prototype.createPlayerWindow = function() {
   var y = this._playerCreatures.y;
   this._player = new Window_Player(x, y);
   this._player.setHandler('ok', this.onPlayerOk.bind(this));
-  //this._playerHand.setHandler('cancel', this.onHandCancel.bind(this));
+  this._player.setHandler('cancel', this.onPlayerCancel.bind(this));
   this._player.deactivate();
   this._player.deselect();
   this.addWindow(this._player);
@@ -189,6 +249,8 @@ Scene_CardBattle.prototype.createEnemyHand = function() {
 
 Scene_CardBattle.prototype.createEnemyCreatures = function() {
     this._enemyCreatures = new Window_EnemyCreatures();
+    this._enemyCreatures.setHandler('ok', this.onEnemyCreatureOk.bind(this));
+    this._enemyCreatures.setHandler('cancel', this.onEnemyCreatureCancel.bind(this));
     this._enemyCreatures.deactivate();
     this._enemyCreatures.deselect();
     this.addWindow(this._enemyCreatures);
@@ -202,6 +264,7 @@ Scene_CardBattle.prototype.createEnemyDeckWindow = function() {
 Scene_CardBattle.prototype.createEnemyGraveyardWindow = function() {
   this._enemyGraveyardWindow = new Window_EnemyGraveyard();
   this._enemyGraveyardWindow.setHandler('ok', this.onEnemyGraveyardOk.bind(this));
+  this._enemyGraveyardWindow.setHandler('cancel', this.onEnemyGraveyardCancel.bind(this));
   this._enemyGraveyardWindow.deactivate();
   this._enemyGraveyardWindow.deselect();
   this.addWindow(this._enemyGraveyardWindow);
@@ -221,7 +284,7 @@ Scene_CardBattle.prototype.createEnemy = function() {
   var y = this._enemyCreatures.y;
   this._enemy = new Window_Enemy(x, y);
   this._enemy.setHandler('ok', this.onEnemyOk.bind(this));
-  //this._playerHand.setHandler('cancel', this.onHandCancel.bind(this));
+  this._enemy.setHandler('cancel', this.onEnemyCancel.bind(this));
   this._enemy.deactivate();
   this._enemy.deselect();
   this.addWindow(this._enemy);
@@ -294,6 +357,7 @@ Scene_CardBattle.prototype.createSelectionWindow = function() {
     this._selectionWindow.deselect();
     this._selectionWindow.setHandler('ok', this.onSelectionOk.bind(this));
     this._selectionWindow.setHandler('check', this.onSelectionCheck.bind(this));
+    this._selectionWindow.setHandler('attack', this.onSelectionAttack.bind(this));
     this._selectionWindow.setHandler('ability', this.onSelectionAbility.bind(this));
     this._selectionWindow.setHandler('cancel', this.onSelectionCancel.bind(this));
     this._selectionWindow.hide();
@@ -308,6 +372,18 @@ Scene_CardBattle.prototype.createDummySelectWindow = function() {
     this._dummyWindow.setHandler('cancel', this.onDummyCancel.bind(this));
     this._dummyWindow.hide();
     this.addWindow(this._dummyWindow);
+};
+
+Scene_CardBattle.prototype.createDummyEnemyWindow = function() {
+    var x = this._enemy.x;
+    var y = this._enemy.y;
+    this._dummyEnemy = new Window_DummyEnemy(x, y);
+    this._dummyEnemy.deactivate();
+    this._dummyEnemy.deselect();
+    this._dummyEnemy.setHandler('ok', this.onDummyEnemyOk.bind(this));
+    this._dummyEnemy.setHandler('cancel', this.onDummyCancel.bind(this));
+    this._dummyEnemy.hide();
+    this.addWindow(this._dummyEnemy);
 };
 
 Scene_CardBattle.prototype.onHandOk = function() {
@@ -342,24 +418,51 @@ Scene_CardBattle.prototype.onGraveyardOk = function() {
   this.activateGraveyardSelection(this._playerGraveyardWindow, false, 'player');
 };
 
+Scene_CardBattle.prototype.onGraveyardCancel = function() {
+  this._playerGraveyardWindow.deactivate();
+  this._playerGraveyardWindow.deselect();
+  this._playerHand.activate();
+  this._playerHand.select(0);
+};
+
 Scene_CardBattle.prototype.onPlayerOk = function() {
   var card = this._player._nexusCard;
   var shiftX = 72, shiftY = 72;
   this.activateSelectionWindow(this._player, 'player', card, true, shiftX, shiftY);
 };
 
+Scene_CardBattle.prototype.onPlayerCancel = function() {
+  this._player.deactivate();
+  this._player.deselect();
+  this._playerHand.activate();
+  this._playerHand.reselect();
+};
+
 Scene_CardBattle.prototype.onSelectionOk = function() {
-  var src = this._playerHand;
+  //var src = this._playerHand;
+  var src = this.getPreviousWindow();
   var index = src.index();
-  var card = src._hand[index];
+  //var card = src._hand[index];
+  //var card = this.getSource(src)[index];
+  var card = this._selectionWindow.card();
   if (card.type === 'Creature') {
-    this.placeCreature(src, index, card);
+    this.placeCreature(src, index, this._playerCreatures, card);
     this.onSelectionCancel();
   } else if (card.type === 'Spell') {
     this.processSpellTarget(card);
   }
   this.refreshWindows();
   //this.onSelectionCancel();
+};
+
+Scene_CardBattle.prototype.onSelectionAttack = function() {
+  var src = this.getPreviousWindow();
+  var index = src.index();
+  //var card = this.getSource(src)[index];
+  var card = this._selectionWindow.card();
+  card = $dataItems[card._enemyId];
+  this._dummyWindow.setSelectionType('enemy');
+  this.activateDummyWindow(card);
 };
 
 Scene_CardBattle.prototype.onSelectionAbility = function() {
@@ -400,16 +503,35 @@ Scene_CardBattle.prototype.onDummyOk = function() {
   var targetIndex = this._dummyWindow.index();
   var selectType = this._dummyWindow.selectionType();
   if (selectType === 'player') {
-    var target = SceneManager._scene._playerCreatures._creatures[targetIndex];
-  } else if (selectType === 'player') {
-    var target = SceneManager._scene._playerCreatures._creatures[targetIndex];
+    var target = this._playerCreatures._creatures[targetIndex];
+  } else if (selectType === 'enemy') {
+    var target = this._enemyCreatures._creatures[targetIndex];
   }
   var card = this._dummyWindow._card;
+  var type = card.type;
   this.onDummyCancel();
   this.onSelectionCancel();
-  this.useSpellCard(target, targetIndex, card);
+  if (type === 'Creature' && selectType === 'enemy') {
+    var userIndex = this._playerCreatures.index();
+    var user = this._playerCreatures._creatures[userIndex];
+    this.useCreatureAttack(user, userIndex, target, targetIndex, card);
+  } else if (type === 'Spell') {
+    this.useSpellCard(target, targetIndex, card);
+  }
   this.refreshWindows();
   //this.onSelectionCancel();
+};
+
+Scene_CardBattle.prototype.onDummyEnemyOk = function() {
+  var targetIndex = 0;
+  var target = this._dummyEnemy._enemy;
+  var userIndex = this._playerCreatures.index();
+  var user = this._playerCreatures._creatures[userIndex];
+  var card = this._dummyWindow._card;
+  this.useCreatureAttack(user, userIndex, target, targetIndex, card);
+  this.onDummyCancel();
+  this.onSelectionCancel();
+  this.refreshWindows();
 };
 
 Scene_CardBattle.prototype.onDummyCancel = function() {
@@ -419,11 +541,13 @@ Scene_CardBattle.prototype.onDummyCancel = function() {
   this._dummyWindow.deactivate();
   this._dummyWindow.deselect();
   this._dummyWindow.hide();
+  this._dummyEnemy.deactivate();
+  this._dummyEnemy.deselect();
+  this._dummyEnemy.hide();
 };
 
 Scene_CardBattle.prototype.onGraveSelectOk = function() {
   var retrieve = this._playerGraveyardSelection._retrieve;
-  console.log(retrieve);
   if (retrieve) {
     var index = this._playerGraveyardSelection.index();
     index = this._playerHand._graveyard.length - 1 - index;
@@ -451,15 +575,45 @@ Scene_CardBattle.prototype.onGraveSelectCancel = function() {
   this.refreshWindows();
 };
 
+Scene_CardBattle.prototype.onEnemyCreatureOk = function() {
+  var creature = this._enemyCreatures;
+  var index = creature.index();
+  var card = creature._creatures[index];
+  var shiftX = 0.5 * creature.itemWidth();
+  var shiftY = 0.5 * creature.itemHeight();
+  this.activateSelectionWindow(creature, 'enemyCreature', card, true, shiftX, shiftY);
+};
+
+Scene_CardBattle.prototype.onEnemyCreatureCancel = function() {
+  this._enemyCreatures.deactivate();
+  this._enemyCreatures.deselect();
+  this._playerHand.activate();
+  this._playerHand.reselect();
+};
+
 Scene_CardBattle.prototype.onEnemyGraveyardOk = function() {
   if (this._enemyHand._graveyard.length < 1) return;
   this.activateGraveyardSelection(this._enemyGraveyardWindow, false, 'enemy');
+};
+
+Scene_CardBattle.prototype.onEnemyGraveyardCancel = function() {
+  this._enemyGraveyardWindow.deactivate();
+  this._enemyGraveyardWindow.deselect();
+  this._playerHand.activate();
+  this._playerHand.reselect();
 };
 
 Scene_CardBattle.prototype.onEnemyOk = function() {
   var card = this._enemy._nexusCard;
   var shiftX = 72, shiftY = 72;
   this.activateSelectionWindow(this._enemy, 'enemy', card, true, shiftX, shiftY);
+};
+
+Scene_CardBattle.prototype.onEnemyCancel = function() {
+  this._enemy.deactivate();
+  this._enemy.deselect();
+  this._playerHand.activate();
+  this._playerHand.reselect();
 };
 
 Scene_CardBattle.prototype.activateSelectionWindow = function(part, selectionType, obj, absY, shiftX, shiftY) {
@@ -483,12 +637,28 @@ Scene_CardBattle.prototype.activateDummyWindow = function(obj) {
   } else if (selectType === 'enemy') {
     var x = this._enemyCreatures.x;
     var y = this._enemyCreatures.y;
+    this._dummyEnemy.refresh();
+    this._dummyEnemy.show();
   }
+  var monsterIndex = this._playerCreatures.index();
+  var monster = this._playerCreatures._creatures[monsterIndex];
   this._dummyWindow.refresh(x, y, obj);
   this._selectionWindow.deactivate();
   this._selectionWindow.hide();
-  this._dummyWindow.activate();
-  this._dummyWindow.select(0);
+
+  if (this._selectionWindow.isCreature()) {
+    if (this.canAttackCreature(monster) && this._enemyCreatures._creatures.length > 0) {
+      this._dummyWindow.activate();
+      this._dummyWindow.select(0);
+    } else {
+      this._dummyEnemy.activate();
+      this._dummyEnemy.select(0);
+    }
+  } else {
+      this._dummyWindow.activate();
+      this._dummyWindow.select(0);
+  }
+
   this._dummyWindow.show();
 };
 
@@ -505,10 +675,12 @@ Scene_CardBattle.prototype.activateGraveyardSelection = function(prevWindow, ret
 };
 
 
-Scene_CardBattle.prototype.placeCreature = function(src, index, card) {
+Scene_CardBattle.prototype.placeCreature = function(src, index, dest, card) {
   src._hand.splice(index, 1);
-  this._playerCreatures.add(card);
-  this._playerHand._sp -= card.cost;
+  dest.add(card);
+  if (dest === this._playerCreatures) this._playerHand.addSp(-card.cost);
+  else if (dest === this._enemyCreatures) this._enemyHand.addSp(-card.cost);
+  this.processOnSummonEffects(card);
   this.refreshWindows();
 };
 
@@ -551,6 +723,58 @@ Scene_CardBattle.prototype.processSpellTarget = function(card) {
   } else return;
 };
 
+Scene_CardBattle.prototype.useCreatureAttack = function(user, userIndex, target, targetIndex, card) {
+  user.addAttackCount(-1);
+  this.processCreatureAttack(user, userIndex, target, targetIndex, card);
+};
+
+Scene_CardBattle.prototype.processCreatureAttack = function(user, userIndex, target, targetIndex, card) {
+  var userCard = $dataItems[user._enemyId];
+  var targetCard = $dataItems[target._enemyId];
+  var atk = user.atk;
+  var element = targetCard.ele;
+  var weakness = this.getWeakness(element);
+  if (userCard.ele === weakness) atk *= 2;
+  target.gainHp(-atk);
+  if (target.isDead()) {
+    if (targetCard.type === 'Nexus') {
+      BattleManager.processVictory();
+      this._gameEnd = true;
+    } else this.processCreatureDeath(target, targetIndex, targetCard);
+  }
+  this.refreshWindows();
+  /*if (card.effectEval === '') return;
+    var creatures = SceneManager._scene._playerCreatures._creatures;
+    var hand = SceneManager._scene._playerHand._hand;
+    var deck = SceneManager._scene._playerHand._deck;
+    var graveyard = SceneManager._scene._playerHand._graveyard;
+    var enemyCreatures = SceneManager._scene._enemyCreatures._creatures;
+    var index = targetIndex;
+    var targetCard = $dataItems[target._enemyId];
+    var s = $gameSwitches._data;
+    var v = $gameVariables._data;
+    var code = card.effectEval;
+    try {
+      eval(code);
+    } catch (e) {
+      console.log("Error in Card Effect Eval");
+    }
+    */
+
+};
+
+Scene_CardBattle.prototype.processCreatureDeath = function(creature, index, card) {
+  creature.die();
+  var side = creature._tag;
+  if (side === 'player') {
+    this._playerCreatures.discard(index);
+    this._enemyHand.addSp(card.sp);
+  } else if (side === 'enemy') {
+    this._enemyCreatures.discard(index);
+    this._playerHand.addSp(card.sp);
+  }
+};
+
 Scene_CardBattle.prototype.useSpellCard = function(target, targetIndex, card) {
   if (card.type != 'Nexus') {
     var index = this._playerHand._hand.indexOf(card);
@@ -558,7 +782,7 @@ Scene_CardBattle.prototype.useSpellCard = function(target, targetIndex, card) {
   } else {
     this._player._usedAbility = true;
   }
-  this._playerHand._sp -= card.cost;
+  this._playerHand.addSp(-card.cost);
   if (target === undefined || targetIndex === undefined) this.processSpellEffectsNoTarget(card);
   else this.processSpellEffects(target, targetIndex, card);
 };
@@ -600,6 +824,25 @@ Scene_CardBattle.prototype.processSpellEffectsNoTarget = function(card) {
     }
 };
 
+Scene_CardBattle.prototype.processOnSummonEffects = function(card) {
+  if (card.onSummonEval === '') return;
+    var creatures = SceneManager._scene._playerCreatures._creatures;
+    var playerCreatures = creatures;
+    var handWindow = SceneManager._scene._playerHand;
+    var hand = handWindow._hand;
+    var deck = handWindow._deck;
+    var graveyardWindow = handWindow._graveyard;
+    var enemyCreatures = SceneManager._scene._enemyCreatures._creatures;
+    var s = $gameSwitches._data;
+    var v = $gameVariables._data;
+    var code = card.onSummonEval;
+    try {
+      eval(code);
+    } catch (e) {
+      console.log("Error in Card On Summon Eval");
+    }
+};
+
 Scene_CardBattle.prototype.getPreviousWindow = function() {
   switch (this._selectionWindow.selectionType()) {
     case 'hand':
@@ -608,8 +851,9 @@ Scene_CardBattle.prototype.getPreviousWindow = function() {
     case 'playerCreature':
       return this._playerCreatures;
       break;
-    case 'enemyCreatures':
+    case 'enemyCreature':
       return this._enemyCreatures;
+      break;
     case 'player':
       return this._player;
       break;
@@ -632,6 +876,7 @@ Scene_CardBattle.prototype.getSource = function(src) {
       break;
     case this._enemyCreatures:
       return this._enemyCreatures._creatures;
+      break;
     case this._player:
       return this._player._nexusCard;
       break;
@@ -642,4 +887,24 @@ Scene_CardBattle.prototype.getSource = function(src) {
       return this._playerHand._hand;
       break;
   }
+};
+
+Scene_CardBattle.prototype.getWeakness = function(ele) {
+  if (ele%2) return ele + 1;
+  else return ele - 1;
+};
+
+Scene_CardBattle.prototype.canAttackCreature = function(monster) {
+  return !monster.isStateAffected(11);
+};
+
+Scene_CardBattle.prototype.anyDefenderPresent = function(side) {
+  var team;
+  var present = false;
+  if (side === 'player') team = this._playerCreatures._creatures;
+  else if (side === 'enemy') team = this._enemyCreatures._creatures;
+  for (var i=0; i<team.length; i++) {
+    if (team[i].isStateAffected(15)) present = true;
+  }
+  return present;
 };
