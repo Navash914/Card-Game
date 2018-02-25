@@ -69,6 +69,7 @@ var Robert = Object.create(Opponents);
 
 Robert.startTurn = function() {
 	this.summonCreaturePhase();
+	this.castSpellPhase();
 	this.attackPhase();
 	SceneManager._scene.changeTurn('player');
 };
@@ -97,7 +98,8 @@ Robert.castSpellPhase = function() {
 	var summonCosts = spells.map(x => x.cost);
 	if (sp < Math.min(summonCosts)) return;
 	var arenaCreatures = this.creatures();
-	if (!this.canCastAnySpell(spells, arenaCreatures)) return;
+	var oppCreatures = this.playerCreatures();
+	if (!this.canCastAnySpell(spells, arenaCreatures, oppCreatures)) return;
 	var weight = 0;
 	weight += arenaCreatures.length;
 	weight += Math.floor(Math.random()*10);
@@ -116,6 +118,7 @@ Robert.attackPhase = function() {
 			if (creatures[i].canAttackCreatures()) {
 				var user = creatures[i];
 				this.scene().useCreatureAttack(user, i, targetDefender, this.playerCreatures().indexOf(targetDefender));
+				console.log("Attacked " + $dataItems[targetDefender._enemyId].name);
 				attacked = true;
 				break;
 			}
@@ -123,7 +126,7 @@ Robert.attackPhase = function() {
 		if (attacked) return this.attackPhase();
 		else return;
 	}
-	if (this.canWin(creatures)) this.allAttackPlayer();
+	if (this.canWin(creatures)) this.allAttackPlayer(creatures);
 	else this.attackRandom();
 };
 
@@ -140,6 +143,7 @@ Robert.placeCreature = function(creatures, costs, sp) {
 			var card = creatures[rand];
 			var index = this.hand().indexOf(card);
 			this.scene().placeCreature(this.scene()._enemyHand, index, this.scene()._enemyCreatures, card);
+			console.log("Placed " + card.name);
 			done = true;
 		}
 	}
@@ -158,11 +162,26 @@ Robert.castSpell = function(spells, costs, sp) {
 			var card = spells[rand];
 			var target = this.getSpellTarget(card);
 			if (!target) this.scene().useSpellCard(undefined, undefined, card);
-			var index = (target._tag == 'enemy') ? this.scene()._enemyCreatures.indexOf(target) : this.scene()._playerCreatures.indexOf(target);
+			var index = (target._tag == 'enemy') ? this.scene()._enemyCreatures._creatures.indexOf(target) : this.scene()._playerCreatures._creatures.indexOf(target);
 			this.scene().useSpellCard(target, index, card);
+			console.log("Casted " + card.name);
 			done = true;
 		}
 	}
+};
+
+Robert.canCastAnySpell = function(spells, creatures, playerCreatures) {
+	var condition = false;
+	var scene = this.scene();
+	for (var i=0; i<spells.length; i++) {
+		var spell = spells[i];
+		if (scene.isForOpponent(spell)) {
+			if (playerCreatures.length > 0 && spell.sp <= this.sp()) condition = true;
+		} else if (scene.isForAlly(spell)) {
+			if (creatures.length > 0 && spell.sp <= this.sp()) condition = true;
+		}
+	}
+	return condition;
 };
 
 Robert.canCast = function(spellCard) {
@@ -211,7 +230,7 @@ Robert.canWin = function(creatures) {
 	else return false;
 };
 
-Robert.allAttackPlayer = function() {
+Robert.allAttackPlayer = function(creatures) {
 	var target = this.scene()._player._nexusCard;
 	for (var i=0; i<creatures.length; i++) {
 		if (creatures[i].canAttackPlayer()) this.scene().useCreatureAttack(creatures[i], i, target, 0);
@@ -223,7 +242,7 @@ Robert.attackRandom = function() {
 	var player = this.scene()._player._nexusCard;
 	var users = this.creatures();
 	for (var i=0; i<users.length; i++) {
-		if (!this.canAttack(users[i])) continue;
+		if (!users[i].canAttackNormal()) continue;
 		var tries = 0;
 		var user = users[i];
 		while (tries < 20) {
@@ -232,15 +251,19 @@ Robert.attackRandom = function() {
 				this.scene().useCreatureAttack(user, i, player, 0);
 				break;
 			} else {
-				var rand = Math.floor(Math.random()*targets.length+1);
+				var rand = Math.floor(Math.random()*(targets.length+1));
 				if (rand == targets.length) { // player
 					if (!user.canAttackPlayer()) continue;
 					else {
 						this.scene().useCreatureAttack(user, i, player, 0);
+						console.log("Attacked Player with " + $dataItems[user._enemyId].name);
 						break;
 					}
 				} else { // Monster
-					this.scene().useCreatureAttack(user, i, player, 0);
+					var index = Math.floor(Math.random()*targets.length);
+					var target = targets[index];
+					this.scene().useCreatureAttack(user, i, target, index);
+					console.log("Attacked " + $dataItems[target._enemyId].name + " with " + $dataItems[user._enemyId].name);
 					break;
 				}
 			}
