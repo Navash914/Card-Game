@@ -15,6 +15,7 @@ Scene_CardBattle.prototype.initialize = function() {
   this._checkImgShowing = false;
   this._noWindowActiveOk = false;
   this._gameEnd = false;
+  this._turnTag = 'player';
   Scene_Battle.prototype.initialize.call(this);
 };
 
@@ -438,17 +439,34 @@ Scene_CardBattle.prototype.changeTurn = function(nextTurn) {
     this.setNoWindowActiveOk(true);
     this.disableAllWindows();
     var opponent = Robert;
-    this._enemyHand.addSp(1);
+    this.addTurnChangeSp('enemy');
     this._enemyHand.drawCard(1);
+    this._turnTag = 'enemy';
     opponent.startTurn();
   } else {
     this.setNoWindowActiveOk(false);
-    this._playerHand.addSp(1);
+    this.addTurnChangeSp('player');
     this._playerHand.drawCard(1);
     this._playerHand.activate();
     this._playerHand.select(0);
+    this._turnTag = 'player';
   }
   this.refreshWindows();
+};
+
+Scene_CardBattle.prototype.addTurnChangeSp = function(side) {
+  if (side == 'player') {
+    var creatures = this._enemyCreatures._creatures;
+    var hand = this._playerHand;
+  } else {
+    var creatures = this._playerCreatures._creatures;
+    var hand = this._enemyHand;
+  }
+  var sp = 1;
+  sp += creatures.length;
+  hand.addSp(sp);
+  var handName = (hand == this._playerHand)? "player" : "enemy";
+  console.log("Added " + sp + " SP to " + handName + " hand because nextTurn is " + side);
 };
 
 Scene_CardBattle.prototype.clearAllBuffs = function() {
@@ -865,70 +883,102 @@ Scene_CardBattle.prototype.useSpellCard = function(target, targetIndex, card) {
 
 Scene_CardBattle.prototype.processSpellEffects = function(target, targetIndex, card) {
   if (card.effectEval === '') return;
-    var handWindow = SceneManager._scene._playerHand;
-    var enemyHandWindow = SceneManager._scene._enemyHand;
-    var creatures = SceneManager._scene._playerCreatures._creatures;
-    var hand = handWindow._hand;
-    var enemyHand = enemyHandWindow._hand;
-    var deck = handWindow._deck;
-    var enemyDeck = enemyHandWindow._deck; 
-    var graveyard = handWindow._graveyard;
-    var enemyGraveyard = enemyHandWindow._graveyard;
-    var enemyCreatures = SceneManager._scene._enemyCreatures._creatures;
-    var targetCard = $dataItems[target._enemyId];
-    var s = $gameSwitches._data;
-    var v = $gameVariables._data;
-    var code = card.effectEval;
-    try {
-      eval(code);
-    } catch (e) {
-      console.log("Error in Card Effect Eval");
-    }
+  var turn = this._turnTag;
+  var scene = SceneManager._scene;
+  if (this._turnTag == 'player') {
+    var handWindow = scene._playerHand;
+    var enemyHandWindow = scene._enemyHand;
+    var creatureWindow = scene._playerCreatures;
+    var enemyCreatureWindow = scene._enemyCreatures;
+  } else {
+    var handWindow = scene._enemyHand;
+    var enemyHandWindow = scene._playerHand;
+    var creatureWindow = scene._enemyCreatures;
+    var enemyCreatureWindow = scene._playerCreatures;
+  }
+  var enemyCreatures = enemyCreatureWindow._creatures;
+  var creatures = creatureWindow._creatures;
+  var hand = handWindow._hand;
+  var enemyHand = enemyHandWindow._hand;
+  var deck = handWindow._deck;
+  var enemyDeck = enemyHandWindow._deck; 
+  var graveyard = handWindow._graveyard;
+  var enemyGraveyard = enemyHandWindow._graveyard;
+  var targetCard = $dataItems[target._enemyId];
+  var s = $gameSwitches._data;
+  var v = $gameVariables._data;
+  var code = card.effectEval;
+  try {
+    eval(code);
+  } catch (e) {
+    console.log("Error in Card Effect Eval");
+  }
 };
 
 Scene_CardBattle.prototype.processSpellEffectsNoTarget = function(card) {
   if (card.effectEval === '') return;
-    var handWindow = SceneManager._scene._playerHand;
-    var enemyHandWindow = SceneManager._scene._enemyHand;
-    var creatures = SceneManager._scene._playerCreatures._creatures;
-    var hand = handWindow._hand;
-    var enemyHand = enemyHandWindow._hand;
-    var deck = handWindow._deck;
-    var enemyDeck = enemyHandWindow._deck; 
-    var graveyard = handWindow._graveyard;
-    var enemyGraveyard = enemyHandWindow._graveyard;
-    var enemyCreatures = SceneManager._scene._enemyCreatures._creatures;
-    var s = $gameSwitches._data;
-    var v = $gameVariables._data;
-    var code = card.effectEval;
-    try {
-      eval(code);
-    } catch (e) {
-      console.log("Error in Card Effect Eval");
-    }
+  var turn = this._turnTag;
+  var scene = SceneManager._scene;
+  if (this._turnTag == 'player') {
+    var handWindow = scene._playerHand;
+    var enemyHandWindow = scene._enemyHand;
+    var creatureWindow = scene._playerCreatures;
+    var enemyCreatureWindow = scene._enemyCreatures;
+  } else {
+    var handWindow = scene._enemyHand;
+    var enemyHandWindow = scene._playerHand;
+    var creatureWindow = scene._enemyCreatures;
+    var enemyCreatureWindow = scene._playerCreatures;
+  }
+  var enemyCreatures = enemyCreatureWindow._creatures;
+  var creatures = creatureWindow._creatures;
+  var hand = handWindow._hand;
+  var enemyHand = enemyHandWindow._hand;
+  var deck = handWindow._deck;
+  var enemyDeck = enemyHandWindow._deck; 
+  var graveyard = handWindow._graveyard;
+  var enemyGraveyard = enemyHandWindow._graveyard;
+  var s = $gameSwitches._data;
+  var v = $gameVariables._data;
+  var code = card.effectEval;
+  try {
+    eval(code);
+  } catch (e) {
+    console.log("Error in Card Effect Eval");
+  }
 };
 
 Scene_CardBattle.prototype.processOnSummonEffects = function(card) {
   if (card.onSummonEval === '') return;
-    var handWindow = SceneManager._scene._playerHand;
-    var enemyHandWindow = SceneManager._scene._enemyHand;
-    var creatures = SceneManager._scene._playerCreatures._creatures;
-    var playerCreatures = creatures;
-    var hand = handWindow._hand;
-    var enemyHand = enemyHandWindow._hand;
-    var deck = handWindow._deck;
-    var enemyDeck = enemyHandWindow._deck; 
-    var graveyard = handWindow._graveyard;
-    var enemyGraveyard = enemyHandWindow._graveyard;
-    var enemyCreatures = SceneManager._scene._enemyCreatures._creatures;
-    var s = $gameSwitches._data;
-    var v = $gameVariables._data;
-    var code = card.onSummonEval;
-    try {
-      eval(code);
-    } catch (e) {
-      console.log("Error in Card On Summon Eval");
-    }
+  var turn = this._turnTag;
+  var scene = SceneManager._scene;
+  if (this._turnTag == 'player') {
+    var handWindow = scene._playerHand;
+    var enemyHandWindow = scene._enemyHand;
+    var creatureWindow = scene._playerCreatures;
+    var enemyCreatureWindow = scene._enemyCreatures;
+  } else {
+    var handWindow = scene._enemyHand;
+    var enemyHandWindow = scene._playerHand;
+    var creatureWindow = scene._enemyCreatures;
+    var enemyCreatureWindow = scene._playerCreatures;
+  }
+  var enemyCreatures = enemyCreatureWindow._creatures;
+  var creatures = creatureWindow._creatures;
+  var hand = handWindow._hand;
+  var enemyHand = enemyHandWindow._hand;
+  var deck = handWindow._deck;
+  var enemyDeck = enemyHandWindow._deck; 
+  var graveyard = handWindow._graveyard;
+  var enemyGraveyard = enemyHandWindow._graveyard;
+  var s = $gameSwitches._data;
+  var v = $gameVariables._data;
+  var code = card.onSummonEval;
+  try {
+    eval(code);
+  } catch (e) {
+    console.log("Error in Card On Summon Eval");
+  }
 };
 
 Scene_CardBattle.prototype.getPreviousWindow = function() {
