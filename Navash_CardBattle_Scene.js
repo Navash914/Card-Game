@@ -1,6 +1,6 @@
 /*
  *
- * Navash_CardBattle_EnemyWindows.js
+ * Navash_CardBattle_Scene.js
  *
  * Controls the card battle scene.
  *
