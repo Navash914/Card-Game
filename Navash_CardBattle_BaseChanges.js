@@ -1,3 +1,14 @@
+/*
+ *
+ * Navash_CardBattle_BaseChanges.js
+ *
+ * Contains all the relevant code from the base RPG Maker MV library.
+ * Any changes to base functionality will be in this file.
+ *
+ * Author: Naveed Ashfaq
+ *
+ */
+
 BattleManager.checkBattleEnd = function() {
     /*if (this._phase) {
         if (this.checkAbort()) {
