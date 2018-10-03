@@ -1,9 +1,13 @@
-/*Window_Base.prototype.drawGaugeEx = function(x, y, width, height, rate, color1, color2) {
-    var fillW = Math.floor(width * rate);
-    var gaugeY = y + this.lineHeight() - 8;
-    this.contents.fillRect(x, y, width, height, this.gaugeBackColor());
-    this.contents.gradientFillRect(x, y, fillW, height, color1, color2);
-};*/
+/*
+ *
+ * Navash_CardBattle_PlayerWindows.js
+ *
+ * Draws and creates functionality for
+ * windows related to the player.
+ *
+ * Author: Naveed Ashfaq
+ *
+ */
 
 Window_Base.prototype.drawGaugeEx = function(dx, dy, dw, dh, rate, color1, color2) {
   var color3 = this.gaugeBackColor();
