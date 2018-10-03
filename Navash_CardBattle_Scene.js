@@ -1,3 +1,13 @@
+/*
+ *
+ * Navash_CardBattle_EnemyWindows.js
+ *
+ * Controls the card battle scene.
+ *
+ * Author: Naveed Ashfaq
+ *
+ */
+
 //=============================================================================
 // Scene_CardBattle
 //=============================================================================
