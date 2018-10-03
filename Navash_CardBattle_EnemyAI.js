@@ -1,13 +1,14 @@
 /*
+ *
+ * Navash_CardBattle_EnemyAI.js
+ *
+ * AI for the player to play against.
+ *
+ * Author: Naveed Ashfaq
+ *
+ */
 
-enemy = $gameSystem.opponent();
-enemy.startTurn();
-
-
-enemy.startTurn = 
-
-
-*/
+// For now, AI plays random moves to be able to simulate a full game.
 
 var Opponents = Opponents || {};
 
