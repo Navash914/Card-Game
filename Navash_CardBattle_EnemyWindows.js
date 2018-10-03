@@ -1,3 +1,14 @@
+/*
+ *
+ * Navash_CardBattle_EnemyWindows.js
+ *
+ * Draws and creates functionality for
+ * windows related to the opponent.
+ *
+ * Author: Naveed Ashfaq
+ *
+ */
+
 //=============================================================================
 // Window_EnemyCreatures
 //=============================================================================
