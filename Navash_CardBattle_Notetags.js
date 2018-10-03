@@ -1,3 +1,14 @@
+/*
+ *
+ * Navash_CardBattle_Notetags.js
+ *
+ * Reads all notetags from the program to
+ * create card functionality.
+ *
+ * Author: Naveed Ashfaq
+ *
+ */
+
 var databaseLoaded = DataManager.isDatabaseLoaded;
 DataManager.isDatabaseLoaded = function() {
   if (!databaseLoaded.call(this)) return false;
