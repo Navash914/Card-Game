@@ -1,3 +1,14 @@
+/*
+ *
+ * Navash_CardBattle_MiscWindows.js
+ *
+ * Draws and creates functionality for miscellaneous
+ * windows, usually meant for command selection.
+ *
+ * Author: Naveed Ashfaq
+ *
+ */
+
 //=============================================================================
 // Window_CardSelection
 //=============================================================================
